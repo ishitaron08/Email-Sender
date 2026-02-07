@@ -1,0 +1,111 @@
+// Prisma schema for the Dispatch Engine
+// Models: Identity (OAuth user), Campaign, Dispatch (individual email job), Ledger (send log)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Users authenticated via Google OAuth ───────────────
+model Identity {
+  id           String   @id @default(uuid()) @db.Uuid
+  googleId     String   @unique @map("google_id")
+  email        String   @unique
+  displayName  String   @map("display_name")
+  avatarUrl    String?  @map("avatar_url")
+  accessToken  String   @map("access_token") @db.Text
+  refreshToken String?  @map("refresh_token") @db.Text
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  campaigns  Campaign[]
+  dispatches Dispatch[]
+
+  @@map("identities")
+}
+
+// ─── Group of emails sent together ──────────────────────
+model Campaign {
+  id              String         @id @default(uuid()) @db.Uuid
+  ownerId         String         @map("owner_id") @db.Uuid
+  title           String         @db.VarChar(255)
+  subjectTemplate String         @map("subject_template") @db.Text
+  bodyTemplate    String         @map("body_template") @db.Text
+  status          CampaignStatus @default(DRAFT)
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  owner      Identity   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  dispatches Dispatch[]
+
+  @@index([ownerId, status])
+  @@map("campaigns")
+}
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  PAUSED
+}
+
+// ─── Individual email job ───────────────────────────────
+model Dispatch {
+  id             String         @id @default(uuid()) @db.Uuid
+  campaignId     String         @map("campaign_id") @db.Uuid
+  senderId       String         @map("sender_id") @db.Uuid
+  recipientEmail String         @map("recipient_email") @db.VarChar(320)
+  recipientName  String?        @map("recipient_name") @db.VarChar(255)
+  idempotencyKey String         @unique @map("idempotency_key") @db.VarChar(255)
+  status         DispatchStatus @default(SCHEDULED)
+  scheduledAt    DateTime       @map("scheduled_at")
+  attempts       Int            @default(0) @db.SmallInt
+  lastError      String?        @map("last_error") @db.Text
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  sender   Identity @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  ledger   Ledger?
+
+  @@index([status, scheduledAt])
+  @@index([campaignId, status])
+  @@index([senderId, scheduledAt])
+  @@map("dispatches")
+}
+
+enum DispatchStatus {
+  SCHEDULED
+  QUEUED
+  PROCESSING
+  SENT
+  FAILED
+  RATE_LIMITED
+  CANCELLED
+}
+
+// ─── Immutable record of a sent email ───────────────────
+model Ledger {
+  id             String       @id @default(uuid()) @db.Uuid
+  dispatchId     String       @unique @map("dispatch_id") @db.Uuid
+  idempotencyKey String       @map("idempotency_key") @db.VarChar(255)
+  smtpMessageId  String?      @map("smtp_message_id") @db.VarChar(255)
+  outcome        SendOutcome  @default(DELIVERED)
+  sentAt         DateTime     @default(now()) @map("sent_at")
+  rawResponse    Json?        @map("raw_response")
+
+  dispatch Dispatch @relation(fields: [dispatchId], references: [id], onDelete: Cascade)
+
+  @@index([idempotencyKey])
+  @@map("ledger_entries")
+}
+
+enum SendOutcome {
+  DELIVERED
+  BOUNCED
+  ERROR
+}
