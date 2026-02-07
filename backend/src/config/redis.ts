@@ -8,12 +8,21 @@ import { logger } from "./logger";
  * counters and general-purpose caching.
  */
 export function buildRedisConnection(): Redis {
-  const connection = new Redis({
-    host: env.REDIS_HOST,
-    port: env.REDIS_PORT,
-    maxRetriesPerRequest: null, // required by BullMQ
-    enableReadyCheck: false,
-  });
+  // Use REDIS_URL if available (Railway/Upstash provide this with password)
+  // Fall back to host/port for local Docker dev
+  const redisUrl = process.env.REDIS_URL;
+
+  const connection = redisUrl
+    ? new Redis(redisUrl, {
+        maxRetriesPerRequest: null,
+        enableReadyCheck: false,
+      })
+    : new Redis({
+        host: env.REDIS_HOST,
+        port: env.REDIS_PORT,
+        maxRetriesPerRequest: null,
+        enableReadyCheck: false,
+      });
 
   connection.on("connect", () =>
     logger.info("🔴 Redis connection established")

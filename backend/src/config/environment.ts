@@ -11,12 +11,14 @@ const envSchema = z.object({
     .default("development"),
 
   API_PORT: z.coerce.number().default(4000),
+  PORT: z.coerce.number().optional(),
   FRONTEND_URL: z.string().url().default("http://localhost:3000"),
 
   // Postgres
   DATABASE_URL: z.string().url(),
 
   // Redis
+  REDIS_URL: z.string().optional(),
   REDIS_HOST: z.string().default("localhost"),
   REDIS_PORT: z.coerce.number().default(6379),
 

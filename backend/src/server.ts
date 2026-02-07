@@ -18,10 +18,12 @@ async function boot(): Promise<void> {
     logger.info({ recovered }, "Startup recovery complete");
   }
 
-  app.listen(env.API_PORT, () => {
+  const port = env.PORT ?? env.API_PORT;
+
+  app.listen(port, () => {
     logger.info(
-      { port: env.API_PORT, env: env.NODE_ENV },
-      `🚀 Dispatch Engine API listening on port ${env.API_PORT}`
+      { port, env: env.NODE_ENV },
+      `🚀 Dispatch Engine API listening on port ${port}`
     );
   });
 }

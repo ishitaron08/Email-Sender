@@ -5,8 +5,12 @@ import axios from "axios";
  * - In development, Next.js rewrites /api/backend/* → localhost:4000/api/*
  * - JWT token is attached automatically from localStorage.
  */
+const baseURL = process.env.NEXT_PUBLIC_API_URL
+  ? `${process.env.NEXT_PUBLIC_API_URL}/api`
+  : "/api/backend";
+
 const apiClient = axios.create({
-  baseURL: "/api/backend",
+  baseURL,
   headers: { "Content-Type": "application/json" },
   timeout: 15_000,
 });
